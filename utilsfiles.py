@@ -1,38 +1,49 @@
-#TODO refactor, many functions here are quite old and don't use modern Python features 
-#TODO look into default encoding used by some functions 
-import os, sys, inspect, glob
+# TODO refactor, many functions here are quite old and don't use modern Python features
+# TODO look into default encoding used by some functions
+import glob
+import inspect
+import os
+import sys
+from os import path
 from shutil import copy as _copyfile
 
-_digs = '0123456789'
+_DIGITS = '0123456789'
+
 
 def make_dirs(filename):
-    if not os.path.exists(os.path.dirname(filename)):
-        import errno
+    dirname = path.dirname(filename)
+    if not path.exists(dirname):
+        # import errno
         try:
-            os.makedirs(os.path.dirname(filename))
-        except OSError as exc: # Guard against race condition
-            if exc.errno != errno.EEXIST:
+            os.makedirs(dirname)
+        except OSError as exc:  # Guard against race condition
+            # if exc.errno != errno.EEXIST:
+            if not path.exists(dirname):
                 raise
-    
+
+
 def get_free_space_mb(dirname):
     """Return folder/drive free space (in bytes)."""
 
     import ctypes
     import platform
+
     if platform.system() == 'Windows':
         free_bytes = ctypes.c_ulonglong(0)
-        ctypes.windll.kernel32.GetDiskFreeSpaceExW(ctypes.c_wchar_p(dirname),
-                                                   None, None,
-                                                   ctypes.pointer(free_bytes))
-        return free_bytes.value 
+        ctypes.windll.kernel32.GetDiskFreeSpaceExW(
+            ctypes.c_wchar_p(dirname), None, None, ctypes.pointer(free_bytes)
+        )
+        return free_bytes.value
     else:
         st = os.statvfs(dirname)
-        return st.f_bavail * st.f_frsize 
+        return st.f_bavail * st.f_frsize
+
 
 def filesize(fname: str) -> int:
     '''File size in bytes'''
     stats = os.stat(fname)
     return stats.st_size
+
 
 def copy_file(src, dest):
     _copyfile(src, dest)
@@ -40,21 +51,22 @@ def copy_file(src, dest):
         print(('Error: %s' % e))
     except IOError as e:
         print(('Error: %s' % e.strerror))'''
-        
+
+
 def show_dirs():
     print('Current path folders:')
     print(sys.path)
     print('Current file:')
-    tmp = inspect.getfile( inspect.currentframe() )
+    tmp = inspect.getfile(inspect.currentframe())
     print(tmp)
     print('Current directory:')
-    tmp = os.path.split( tmp )[0]
+    tmp = os.path.split(tmp)[0]
     print(tmp)
     print('Directory, once again:')
     cmd_folder = os.path.realpath(os.path.abspath(tmp))
     print(cmd_folder)
-#------------------------------------------------------------
-    
+
+
 def del_files_by_mask(mask: str, include_subdir: bool):
     cnt = 0
     if include_subdir:
@@ -65,13 +77,13 @@ def del_files_by_mask(mask: str, include_subdir: bool):
         os.remove(fn)
         cnt += 1
     return cnt
-#------------------------------------------------------------
+
 
 def f_exists(fn):
     return os.access(fn, os.R_OK)
-#------------------------------------------------------------
 
-def replace_in_f(fn, fn_new, st_old, st_new, make_backup = True):
+
+def replace_in_f(fn, fn_new, st_old, st_new, make_backup=True):
     with open(fn, 'r') as f:
         data = f.read()
     data = data.replace(st_old, st_new)
@@ -82,9 +94,9 @@ def replace_in_f(fn, fn_new, st_old, st_new, make_backup = True):
         os.rename(fn_new, fn_new + ext)
     with open(fn_new, 'w') as f:
         f.write(data)
-#------------------------------------------------------------
-    
-def find_in_files(st, mask = None, max_per_f = None, line_by_line = True):
+
+
+def find_in_files(st, mask=None, max_per_f=None, line_by_line=True):
     '''Searches for st in individual lines
     in files (including all subdirectories) satisfying mask'''
     f_l = []
@@ -102,7 +114,7 @@ def find_in_files(st, mask = None, max_per_f = None, line_by_line = True):
                 if cnt == max_per_f:
                     break
     return f_l
-#------------------------------------------------------------
+
 
 def split_file(fn, st_l):
     l = len(st_l)
@@ -113,31 +125,30 @@ def split_file(fn, st_l):
         fn_l.append(fn0 + str(i) + '.txt')
         cnt_l.append(0)
     fn_l.append(fn0 + '_extra' + '.txt')
-    
+
     cnt = 0
     n_wr = l
     f_wr = open(fn_l[n_wr], 'a')
     with open(fn, 'r') as f:
-            for line in f:
-                for i in range(l):
-                    if st_l[i] in line:
-                    #if line.startswith(st_l[i]):
-                        cnt_l[i] += 1
-                        if i != n_wr:
-                            f_wr.close()
-                            n_wr = i
-                            f_wr = open(fn_l[n_wr], 'a')
-                        break
-                f_wr.write(line)
-                cnt += 1
-                if not (cnt % 1000):
-                    print(cnt, 'lines processed. Chunks breakdown:', cnt_l)
+        for line in f:
+            for i in range(l):
+                if st_l[i] in line:
+                    # if line.startswith(st_l[i]):
+                    cnt_l[i] += 1
+                    if i != n_wr:
+                        f_wr.close()
+                        n_wr = i
+                        f_wr = open(fn_l[n_wr], 'a')
+                    break
+            f_wr.write(line)
+            cnt += 1
+            if not (cnt % 1000):
+                print(cnt, 'lines processed. Chunks breakdown:', cnt_l)
     f_wr.close()
     print('Finished.', cnt, 'lines processed. Chunks breakdown:', cnt_l)
-            
-#------------------------------------------------------------
-def split_file_ln(fn, n_ln, fn_base = '', overwrite = False):
 
+
+def split_file_ln(fn, n_ln, fn_base='', overwrite=False):
     def new_fn(n):
         fn_ = fn_base + str(n)
         fn_res = pth + fn_ + ext
@@ -147,7 +158,7 @@ def split_file_ln(fn, n_ln, fn_base = '', overwrite = False):
         while f_exists(fn_res):
             fn_res = pth + fn_ + '(' + str(nn) + ')' + ext
         return fn_res
-    
+
     n_wr = 0
     pth, fn0, ext = split_fn(fn)
     if not fn_base:
@@ -171,10 +182,9 @@ def split_file_ln(fn, n_ln, fn_base = '', overwrite = False):
         f_wr.close()
     print('Finished.', end=' ')
     print(ln_cnt, 'lines processed.')
-            
-#------------------------------------------------------------
 
-def sort_fns_w_nums(fn_l, only_nums = False):
+
+def sort_fns_w_nums(fn_l, only_nums=False):
     def fn_to_tupl(fn):
         dirn, fn00, num_s, ext = split_fn_w_nums(fn)
         if num_s:
@@ -185,9 +195,10 @@ def sort_fns_w_nums(fn_l, only_nums = False):
             return num
         else:
             return (dirn, fn00, num, len(num_s), ext)
-    return sorted(fn_l, key = fn_to_tupl) 
-#------------------------------------------------------------
-    
+
+    return sorted(fn_l, key=fn_to_tupl)
+
+
 def rename_files(find_st, replace_st, fn_l=None):
     '''Rename files in the specified file name list (or in the current directory)
     by replacing a given substring in their names'''
@@ -209,7 +220,7 @@ def rename_files(find_st, replace_st, fn_l=None):
         if cnt2 > 0 and cnt2 % 1000 == 0:
             print(cnt2, 'files remamed.', cnt, 'of', n_tot, 'files processed,')
     print(cnt2, 'files remamed.', cnt, 'of', n_tot, 'files processed,')
-#------------------------------------------------------------
+
 
 def show_tree():
     root_dir = '.'
@@ -218,7 +229,7 @@ def show_tree():
         for fname in file_list:
             fn_full = dir_name + '\\' + fname
             print(('\t%s' % fn_full))
-#------------------------------------------------------------
+
 
 def get_fnames_fixed_dirs(dir_l):
     f_l = []
@@ -231,10 +242,10 @@ def get_fnames_fixed_dirs(dir_l):
             fn_full = os.path.join(mypath, fn)
             if os.path.isfile(fn_full):
                 f_l.append(fn_full)
-                #print os.path.getmtime(fn_full)
-                #print datetime.fromtimestamp(os.path.getmtime(fn_full))
+                # print os.path.getmtime(fn_full)
+                # print datetime.fromtimestamp(os.path.getmtime(fn_full))
     return f_l
-#------------------------------------------------------------
+
 
 def get_fnames_main(root_dir='.', mask=None, incl_subdir=True):
     '''Return file names matching the given mask (or all files), looks in subdirs by default'''
@@ -247,122 +258,124 @@ def get_fnames_main(root_dir='.', mask=None, incl_subdir=True):
             for fname in file_l:
                 fn_full = os.path.join(dir_cur, fname)
                 full_file_l.append(fn_full)
-                #yield fn_full
+                # yield fn_full
         if not incl_subdir:
             break
     return full_file_l
-#------------------------------------------------------------
+
 
 def get_all_fnames(root_dir='.'):
     return get_fnames_main(root_dir=root_dir)
-#------------------------------------------------------------
+
 
 def get_masked_fnames(mask, root_dir='.'):
     return get_fnames_main(root_dir=root_dir, mask=mask)
 
+
 def get_masked_fnames_no_subdirs(mask, root_dir='.'):
-    #return get_fnames_main(root_dir=root_dir, mask=mask)
+    # return get_fnames_main(root_dir=root_dir, mask=mask)
     return glob.glob(os.path.join(root_dir, mask))
+
 
 def get_dir_names(root_dir='.'):
     dir_l = []
     for dir_cur, subdir_list, file_l in os.walk(root_dir):
         dir_l.append(dir_cur)
     return dir_l
-#------------------------------------------------------------
+
 
 def get_dirs(root_dir='.'):
     p = os.path.abspath(root_dir)
     return [os.path.join(p, n) for n in os.listdir(p) if os.path.isdir(os.path.join(p, n))]
-#------------------------------------------------------------
+
 
 def split_fn(fn_full):
     pth, fn = os.path.split(fn_full)
     if pth:
         pth += '\\'
-    fn0, ext = os.path.splitext(fn) 
+    fn0, ext = os.path.splitext(fn)
     return pth, fn0, ext
-#------------------------------------------------------------
+
 
 def split_fn_w_nums(fn_full):
     pth, fn0, ext = split_fn(fn_full)
-    fn00 = fn0.rstrip(_digs)
-    num_s = fn0[len(fn00):]
-    return pth, fn00, num_s, ext 
+    fn00 = fn0.rstrip(_DIGITS)
+    num_s = fn0[len(fn00) :]
+    return pth, fn00, num_s, ext
 
-#------------------------------------------------------------
 
 def extract_fname(fn_full):
     return os.path.basename(fn_full)
-#------------------------------------------------------------
+
 
 def extract_fn_no_ext(fn_full):
     fn, ext = os.path.splitext(os.path.basename(fn_full))
     return fn
-#------------------------------------------------------------
+
 
 def extract_ext(fn_full):
     fn, ext = os.path.splitext(fn_full)
     return ext
-#------------------------------------------------------------
-                       
+
+
 def extract_dir(fn_full):
     return os.path.dirname(fn_full)
-#------------------------------------------------------------
+
 
 def get_txt(fn, encoding='latin1'):
     with open(fn, 'r', encoding=encoding) as f_read:
         return f_read.read()
-#------------------------------------------------------------
+
 
 def write_txt(fn, st, encoding='latin1'):
     with open(fn, 'w', encoding=encoding) as f:
         return f.write(st)
-#------------------------------------------------------------
+
 
 def get_lines(fn, strip_endl=True, encoding='latin1'):
-        '''Returns a list of lines, By default removes end of line characters'''
-        #https://stackoverflow.com/questions/275018/how-can-i-remove-chomp-a-newline-in-python
-        with open(fn, 'r', encoding=encoding) as f_read:
+    '''Returns a list of lines, By default removes end of line characters'''
+    # https://stackoverflow.com/questions/275018/how-can-i-remove-chomp-a-newline-in-python
+    with open(fn, 'r', encoding=encoding) as f_read:
+        if strip_endl:
+            return [line.rstrip('\n\r') for line in f_read.readlines()]
+        else:
+            return f_read.readlines()
+
+        # Python two, and wordpad by default replaces \r\n with \n when
+        # opening files, and \r\r\n with \r\n, and in either of those
+        # cases interprets those two or three symbols as the end of a line.
+
+        # By contrast, Python three and notepad  replaces \r\n with \n when
+        # opening files, and \r\r\n with \n\n, And interprets the latter
+        # case as two lines with the second line being empty
+
+
+def get_lines_g(fn, strip_endl=True, encoding='latin1'):
+    '''Returns a list of lines, By default removes end of line characters'''
+    # https://stackoverflow.com/questions/275018/how-can-i-remove-chomp-a-newline-in-python
+    with open(fn, 'r', encoding=encoding) as f_read:
+        for line in f_read:
             if strip_endl:
-                return [line.rstrip('\n\r') for line in f_read.readlines()]
+                yield line.rstrip('\n\r')
             else:
-                return f_read.readlines()
-                
-            #Python two, and wordpad by default replaces \r\n with \n when
-            #opening files, and \r\r\n with \r\n, and in either of those
-            #cases interprets those two or three symbols as the end of a line.
+                yield line
 
-            #By contrast, Python three and notepad  replaces \r\n with \n when
-            #opening files, and \r\r\n with \n\n, And interprets the latter
-            #case as two lines with the second line being empty
-#------------------------------------------------------------
 
-def get_lines_g(fn, strip_endl = True, encoding='latin1'):
-        '''Returns a list of lines, By default removes end of line characters'''
-        #https://stackoverflow.com/questions/275018/how-can-i-remove-chomp-a-newline-in-python
-        with open(fn, 'r', encoding=encoding) as f_read:
-            for line in f_read:
-                if strip_endl:
-                    yield line.rstrip('\n\r')
-                else:
-                    yield line
-#------------------------------------------------------------
+def add_line(fn, line, add_endl=True, mode='a'):
+    with open(fn, mode) as f_wr:
+        f_wr.write(line)
+        if add_endl:
+            f_wr.write('\r\n')
 
-def add_line(fn, line, add_endl = True, mode = 'a'):
-        with open(fn, mode) as f_wr:
+
+def add_lines(fn, line_l, add_endl=True, mode='a'):
+    with open(fn, mode) as f_wr:
+        for line in line_l:
             f_wr.write(line)
             if add_endl:
                 f_wr.write('\r\n')
-#------------------------------------------------------------
 
-def add_lines(fn, line_l, add_endl = True, mode = 'a'):
-        with open(fn, mode) as f_wr:
-            for line in line_l:
-                f_wr.write(line)
-                if add_endl:
-                    f_wr.write('\r\n')
-#------------------------------------------------------------
+
 def compare_files(fn1, fn2):
     with open(fn1, 'rb') as f1:
         with open(fn2, 'rb') as f2:
@@ -380,11 +393,11 @@ def compare_files(fn1, fn2):
             print('The next byte from the first file:', b1, '(', ord(b1), ')')
             print('The next byte from the second file:', b2, '(', ord(b2), ')')
             return
-#------------------------------------------------------------
 
-def compare_txt_files(fn1, fn2, n_to_ck = 0):
-    line1_l = get_lines(fn1, strip_endl = False)
-    line2_l = get_lines(fn2, strip_endl = False)
+
+def compare_txt_files(fn1, fn2, n_to_ck=0):
+    line1_l = get_lines(fn1, strip_endl=False)
+    line2_l = get_lines(fn2, strip_endl=False)
     cnt = 0
     n1 = len(line1_l)
     n2 = len(line2_l)
@@ -406,8 +419,8 @@ def compare_txt_files(fn1, fn2, n_to_ck = 0):
         cnt += 1
         if cnt == n_to_ck:
             break
-    return True 
-#------------------------------------------------------------
+    return True
+
 
 if __name__ == '__main__':
     i = 0
